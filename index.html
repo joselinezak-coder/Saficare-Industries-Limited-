@@ -299,30 +299,11 @@
             ]
         };
 
-        // FORCE OVERRIDE TO MATCH EXACT NEW VALUES AND CLEAR OUTDATED CACHE
-        let currentData = JSON.parse(localStorage.getItem('saficare_stock_data')) || defaultData;
-        let currentTxns = JSON.parse(localStorage.getItem('saficare_txns')) || [];
+        // FORCE WIPE OLD BROWSER CACHE SO NEW NUMBERS LOAD CLEANLY
+        localStorage.removeItem('saficare_stock_data');
 
-        ['rm'].forEach(cat => {
-            currentData[cat].forEach(item => {
-                if (item.name === "PEROXIDE 35%") {
-                    item.unit = "JERR, KG";
-                    item.stock = 11;
-                    item.stock2 = 6;
-                }
-                if (item.name === "PEROXIDE 50%") {
-                    item.unit = "JERR, KG";
-                    item.stock = 14;
-                    item.stock2 = 7;
-                }
-                if (item.name === "ETHANOL 96%" || item.name === "96%") {
-                    item.name = "ETHANOL 96%";
-                    item.unit = "JERR, KG";
-                    item.stock = 19;
-                    item.stock2 = 4;
-                }
-            });
-        });
+        let currentData = defaultData;
+        let currentTxns = JSON.parse(localStorage.getItem('saficare_txns')) || [];
 
         window.switchTab = function(tab) {
             ['receive', 'dispense', 'add'].forEach(t => {

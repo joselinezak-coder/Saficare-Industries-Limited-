@@ -226,11 +226,11 @@
                 {name: "LABSA", min: 120, stock: 224, stock2: 0, unit: "KG"},
                 {name: "SLES", min: 120, stock: 122, stock2: 0, unit: "KG"},
                 {name: "SALT", min: 100, stock: 0, stock2: 0, unit: "KG"},
-                {name: "PEROXIDE 35% (11 Jerr / 6 KG)", min: 15, stock: 11, stock2: 6, unit: "JERR / KG"},
+                {name: "PEROXIDE 35%", min: 15, stock: 11, stock2: 6, unit: "Jerr, KG"},,
                 {name: "PEROXIDE 50%", min: 15, stock: 14, stock2: 7, unit: "JERR, KG"},
                 {name: "ACETIC", min: 20, stock: 46, stock2: 0, unit: "KG"},
                 {name: "HCL", min: 40, stock: 40, stock2: 0, unit: "KG"},
-                {name: "ETHANOL 96% (19 Jerr / 4 KG)", min: 20, stock: 19, stock2: 4, unit: "JERR / KG"},
+                {name: "ETHANOL 96%", min: 20, stock: 19, stock2: 4, unit: "Jerr, KG"},
                 {name: "STEPANTEX", min: 60, stock: 119, stock2: 0, unit: "KG"},
                 {name: "DAWANOL", min: 10, stock: 37.5, stock2: 0, unit: "KG"},
                 {name: "HYDROSULPHITE", min: 25, stock: 45, stock2: 0, unit: "KG"},
@@ -300,7 +300,7 @@
         };
 
         // FORCE WIPE OLD BROWSER CACHE SO NEW NUMBERS LOAD CLEANLY
-        localStorage.removeItem('saficare_stock_data');
+      localStorage.clear();
 
         let currentData = defaultData;
         let currentTxns = JSON.parse(localStorage.getItem('saficare_txns')) || [];

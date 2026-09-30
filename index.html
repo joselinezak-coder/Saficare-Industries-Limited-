@@ -5,38 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saficare Industries Limited - Stock Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase App & Firestore SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        // ==========================================
-        // FIREBASE CONFIGURATION (YOUR LIVE KEYS)
-        // ==========================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyCY0h3PYxGQi1Xguq99GK8rrkPsKQXByg4",
-            authDomain: "safi-stock.firebaseapp.com",
-            projectId: "safi-stock",
-            storageBucket: "safi-stock.firebasestorage.app",
-            messagingSenderId: "833864509119",
-            appId: "1:833864509119:web:c64d6d9ddde0e9ff65880a",
-            measurementId: "G-NL6FJJ97MC"
-        };
-
-        let db = null;
-        let isCloudConnected = false;
-
-        try {
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            isCloudConnected = true;
-        } catch (e) {
-            console.warn("Firebase initialization error:", e);
-        }
-
-        window.firebaseDb = db;
-        window.firebaseConnected = isCloudConnected;
-    </script>
     <style>
         body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .card { background: white; border-left: 4px solid #1f4e79; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px 12px; margin-bottom: 8px; }
@@ -52,8 +20,8 @@
                 <h1 class="text-2xl font-bold text-[#1f4e79]">💧 Saficare Industries Limited</h1>
                 <p class="text-xs text-gray-500">Stock Database Management System • Nairobi, Kenya</p>
             </div>
-            <div id="connection-status" class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Connecting to Cloud Sync...
+            <div class="bg-blue-50 border border-blue-200 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Local Standalone Mode Active
             </div>
         </div>
 
@@ -130,8 +98,8 @@
                                 <input type="number" step="any" id="rec-qty" value="1" class="w-full border rounded p-2 text-xs">
                             </div>
                             <div>
-                                <label class="text-xs text-gray-600 block mb-1">Secondary Quantity (e.g. KG if applicable)</label>
-                                <input type="number" step="any" id="rec-qty2" value="0" class="w-full border rounded p-2 text-xs" placeholder="Optional secondary unit">
+                                <label class="text-xs text-gray-600 block mb-1">Secondary Quantity (e.g. KG)</label>
+                                <input type="number" step="any" id="rec-qty2" value="0" class="w-full border rounded p-2 text-xs">
                             </div>
                             <div>
                                 <label class="text-xs text-gray-600 block mb-1">Supplier / Company Name</label>
@@ -152,7 +120,7 @@
                             </div>
                             <div>
                                 <label class="text-xs text-gray-600 block mb-1">Secondary Qty to Deduct (e.g. KG)</label>
-                                <input type="number" step="any" id="dis-qty2" value="0" class="w-full border rounded p-2 text-xs" placeholder="Optional secondary unit">
+                                <input type="number" step="any" id="dis-qty2" value="0" class="w-full border rounded p-2 text-xs">
                             </div>
                             <div>
                                 <label class="text-xs text-gray-600 block mb-1">Issued To / Department / Batch</label>
@@ -182,7 +150,7 @@
                                 </div>
                                 <div>
                                     <label class="text-xs text-gray-600 block mb-1">Unit Format</label>
-                                    <input type="text" id="add-unit" value="KG" class="w-full border rounded p-2 text-xs" placeholder="e.g. JERR, KG">
+                                    <input type="text" id="add-unit" value="KG" class="w-full border rounded p-2 text-xs">
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-2">
@@ -191,7 +159,7 @@
                                     <input type="number" step="any" id="add-stock" value="0" class="w-full border rounded p-2 text-xs">
                                 </div>
                                 <div>
-                                    <label class="text-xs text-gray-600 block mb-1">Initial Stock (Secondary KG)</label>
+                                    <label class="text-xs text-gray-600 block mb-1">Initial Stock (Secondary)</label>
                                     <input type="number" step="any" id="add-stock2" value="0" class="w-full border rounded p-2 text-xs">
                                 </div>
                             </div>
@@ -200,7 +168,7 @@
                     </div>
 
                     <div class="mt-6 pt-4 border-t">
-                        <h4 class="font-bold text-xs text-gray-700 mb-2">Extended Activity Log (Full History)</h4>
+                        <h4 class="font-bold text-xs text-gray-700 mb-2">Activity Log</h4>
                         <div id="activity-log" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
                     </div>
                 </div>
@@ -208,9 +176,8 @@
         </div>
     </div>
 
-    <script type="module">
-        import { doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
+    <script>
+        // HARDCODED DEFAULT DATA WITH YOUR EXACT PEROXIDE & ETHANOL VALUES
         const defaultData = {
             rm: [
                 {name: "SODA-ASH", min: 1000, stock: 1604, stock2: 0, unit: "KG"},
@@ -226,11 +193,11 @@
                 {name: "LABSA", min: 120, stock: 224, stock2: 0, unit: "KG"},
                 {name: "SLES", min: 120, stock: 122, stock2: 0, unit: "KG"},
                 {name: "SALT", min: 100, stock: 0, stock2: 0, unit: "KG"},
-                {name: "PEROXIDE 35%", min: 15, stock: 11, stock2: 6, unit: "Jerr, KG"},,
+                {name: "PEROXIDE 35%", min: 15, stock: 11, stock2: 6, unit: "JERR, KG"},
                 {name: "PEROXIDE 50%", min: 15, stock: 14, stock2: 7, unit: "JERR, KG"},
                 {name: "ACETIC", min: 20, stock: 46, stock2: 0, unit: "KG"},
                 {name: "HCL", min: 40, stock: 40, stock2: 0, unit: "KG"},
-                {name: "ETHANOL 96%", min: 20, stock: 19, stock2: 4, unit: "Jerr, KG"},
+                {name: "ETHANOL 96%", min: 20, stock: 19, stock2: 4, unit: "JERR, KG"},
                 {name: "STEPANTEX", min: 60, stock: 119, stock2: 0, unit: "KG"},
                 {name: "DAWANOL", min: 10, stock: 37.5, stock2: 0, unit: "KG"},
                 {name: "HYDROSULPHITE", min: 25, stock: 45, stock2: 0, unit: "KG"},
@@ -299,11 +266,10 @@
             ]
         };
 
-        // FORCE WIPE OLD BROWSER CACHE SO NEW NUMBERS LOAD CLEANLY
-      localStorage.clear();
-
+        // FORCE COMPLETELY FRESH LOCAL DATA STATE
+        localStorage.clear();
         let currentData = defaultData;
-        let currentTxns = JSON.parse(localStorage.getItem('saficare_txns')) || [];
+        let currentTxns = [];
 
         window.switchTab = function(tab) {
             ['receive', 'dispense', 'add'].forEach(t => {
@@ -322,31 +288,20 @@
             return null;
         }
 
-        async function saveData() {
+        function saveData() {
             localStorage.setItem('saficare_stock_data', JSON.stringify(currentData));
             localStorage.setItem('saficare_txns', JSON.stringify(currentTxns));
-
-            if (window.firebaseConnected && window.firebaseDb) {
-                try {
-                    await setDoc(doc(window.firebaseDb, "saficare", "inventory"), {
-                        data: currentData,
-                        transactions: currentTxns,
-                        updatedAt: new Date().toISOString()
-                    });
-                } catch (err) {
-                    console.error("Error saving to Firestore:", err);
-                }
-            }
         }
 
-        window.updateInlineStock = async function(cat, index, field, value) {
+        window.updateInlineStock = function(cat, index, field, value) {
             let val = parseFloat(value);
             if (isNaN(val)) return;
             currentData[cat][index][field] = val;
-            await saveData();
+            saveData();
+            render();
         };
 
-        window.handleReceive = async function() {
+        window.handleReceive = function() {
             const name = document.getElementById('rec-item').value;
             const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
             const qty2 = parseFloat(document.getElementById('rec-qty2').value) || 0;
@@ -360,25 +315,17 @@
             let res = findItem(name);
             if (res) {
                 res.item.stock = Number((parseFloat(res.item.stock) + qty).toFixed(2));
-                let description = `Received +${qty} ${res.item.unit.split(',')[0].trim()}`;
-                
-                if (res.item.unit.includes(',') && qty2 !== 0) {
+                if (res.item.unit.includes(',')) {
                     res.item.stock2 = Number(((res.item.stock2 || 0) + qty2).toFixed(2));
-                    let secondUnit = res.item.unit.split(',')[1].trim();
-                    description += ` and +${qty2} ${secondUnit}`;
                 }
-
-                currentTxns.unshift({
-                    item: name,
-                    type: `${description} (from ${supplier})`,
-                    time: new Date().toLocaleString()
-                });
-                await saveData();
-                alert(`Successfully updated inventory for ${name}!`);
+                currentTxns.unshift({ item: name, type: `Received +${qty} (from ${supplier})`, time: new Date().toLocaleString() });
+                saveData();
+                render();
+                alert(`Successfully updated ${name}!`);
             }
         };
 
-        window.handleDispense = async function() {
+        window.handleDispense = function() {
             const name = document.getElementById('dis-item').value;
             const qty = parseFloat(document.getElementById('dis-qty').value) || 0;
             const qty2 = parseFloat(document.getElementById('dis-qty2').value) || 0;
@@ -387,25 +334,17 @@
             let res = findItem(name);
             if (res) {
                 res.item.stock = Number((parseFloat(res.item.stock) - qty).toFixed(2));
-                let description = `Dispensed -${qty} ${res.item.unit.split(',')[0].trim()}`;
-
-                if (res.item.unit.includes(',') && qty2 !== 0) {
+                if (res.item.unit.includes(',')) {
                     res.item.stock2 = Number(((res.item.stock2 || 0) - qty2).toFixed(2));
-                    let secondUnit = res.item.unit.split(',')[1].trim();
-                    description += ` and -${qty2} ${secondUnit}`;
                 }
-
-                currentTxns.unshift({
-                    item: name,
-                    type: `${description} (${note})`,
-                    time: new Date().toLocaleString()
-                });
-                await saveData();
+                currentTxns.unshift({ item: name, type: `Dispensed -${qty} (${note})`, time: new Date().toLocaleString() });
+                saveData();
+                render();
                 alert(`Successfully dispensed from ${name}!`);
             }
         };
 
-        window.handleAddItem = async function() {
+        window.handleAddItem = function() {
             const cat = document.getElementById('add-cat').value;
             const name = document.getElementById('add-name').value.toUpperCase().trim();
             const min = parseFloat(document.getElementById('add-min').value);
@@ -413,18 +352,12 @@
             const stock = parseFloat(document.getElementById('add-stock').value) || 0;
             const stock2 = parseFloat(document.getElementById('add-stock2').value) || 0;
 
-            if (!name) {
-                alert('Please enter an item name.');
-                return;
-            }
+            if (!name) { alert('Please enter an item name.'); return; }
 
             currentData[cat].push({name, min, stock, stock2, unit});
-            currentTxns.unshift({
-                item: name,
-                type: `Added new item`,
-                time: new Date().toLocaleString()
-            });
-            await saveData();
+            currentTxns.unshift({ item: name, type: `Added new item`, time: new Date().toLocaleString() });
+            saveData();
+            render();
             alert(`Added ${name} successfully!`);
         };
 
@@ -447,11 +380,9 @@
             container.innerHTML = items.map((i, idx) => {
                 const isAlert = parseFloat(i.stock) <= parseFloat(i.min);
                 let secondaryInputHtml = '';
-                let secondUnitName = '';
-
                 if (i.unit.includes(',')) {
-                    secondUnitName = i.unit.split(',')[1].trim();
-                    secondaryInputHtml = `, <input type="number" step="any" value="${i.stock2 !== undefined ? i.stock2 : 0}" class="editable-input text-blue-800" onchange="updateInlineStock('${catName}', ${idx}, 'stock2', this.value)" title="Secondary stock (${secondUnitName})"> ${secondUnitName}`;
+                    let secondUnitName = i.unit.split(',')[1].trim();
+                    secondaryInputHtml = `, <input type="number" step="any" value="${i.stock2 !== undefined ? i.stock2 : 0}" class="editable-input text-blue-800" onchange="updateInlineStock('${catName}', ${idx}, 'stock2', this.value)"> ${secondUnitName}`;
                 }
 
                 return `
@@ -479,7 +410,6 @@
                 ...currentData.cont.map(i => ({...i, cat: 'Containers'})),
                 ...currentData.am.map(i => ({...i, cat: 'Amenities'}))
             ];
-
             const lowStockItems = allItems.filter(i => parseFloat(i.stock) <= parseFloat(i.min));
             document.getElementById('metric-alerts').innerText = lowStockItems.length;
             document.getElementById('alert-count-badge').innerText = `${lowStockItems.length} items`;
@@ -489,25 +419,12 @@
                 container.innerHTML = '<p class="text-green-600 text-xs font-semibold p-2">✅ All stock levels are healthy!</p>';
                 return;
             }
-
-            container.innerHTML = lowStockItems.map(i => {
-                let displayString = `${i.stock} ${i.unit.split(',')[0].trim()}`;
-                if (i.unit.includes(',') && i.stock2 !== undefined) {
-                    displayString = `${i.stock} Jerr, ${i.stock2} ${i.unit.split(',')[1].trim()}`;
-                }
-                return `
-                    <div class="bg-red-50 border-l-2 border-red-500 p-2 rounded text-xs flex justify-between items-center">
-                        <div>
-                            <span class="font-bold text-gray-800">${i.name}</span><br>
-                            <span class="text-[10px] text-gray-500">${i.cat}</span>
-                        </div>
-                        <div class="text-right">
-                            <span class="font-bold text-red-600">${displayString}</span><br>
-                            <span class="text-[10px] text-gray-400">Min: ${i.min}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            container.innerHTML = lowStockItems.map(i => `
+                <div class="bg-red-50 border-l-2 border-red-500 p-2 rounded text-xs flex justify-between items-center">
+                    <div><span class="font-bold text-gray-800">${i.name}</span><br><span class="text-[10px] text-gray-500">${i.cat}</span></div>
+                    <div class="text-right"><span class="font-bold text-red-600">${i.stock} ${i.unit}</span><br><span class="text-[10px] text-gray-400">Min: ${i.min}</span></div>
+                </div>
+            `).join('');
         }
 
         function populateDropdowns() {
@@ -516,13 +433,7 @@
                 ...currentData.cont.map(i => ({...i, cat: 'cont'})),
                 ...currentData.am.map(i => ({...i, cat: 'am'}))
             ];
-            const optionsHtml = allItems.map(i => {
-                let displayString = `${i.stock} ${i.unit.split(',')[0].trim()}`;
-                if (i.unit.includes(',') && i.stock2 !== undefined) {
-                    displayString = `${i.stock} Jerr, ${i.stock2} ${i.unit.split(',')[1].trim()}`;
-                }
-                return `<option value="${i.name}">${i.name} (Current: ${displayString})</option>`;
-            }).join('');
+            const optionsHtml = allItems.map(i => `<option value="${i.name}">${i.name} (Current: ${i.stock} ${i.unit})</option>`).join('');
             document.getElementById('rec-item').innerHTML = optionsHtml;
             document.getElementById('dis-item').innerHTML = optionsHtml;
         }
@@ -543,32 +454,6 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             render();
-
-            const checkFirebaseInterval = setInterval(() => {
-                if (window.firebaseConnected && window.firebaseDb) {
-                    clearInterval(checkFirebaseInterval);
-                    document.getElementById('connection-status').className = "bg-green-50 border border-green-200 text-green-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
-                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Live Cloud Sync Active';
-
-                    onSnapshot(doc(window.firebaseDb, "saficare", "inventory"), (docSnap) => {
-                        if (docSnap.exists()) {
-                            const cloudData = docSnap.data();
-                            if (cloudData.data) currentData = cloudData.data;
-                            if (cloudData.transactions) {
-                                currentTxns = cloudData.transactions;
-                                localStorage.setItem('saficare_txns', JSON.stringify(currentTxns));
-                            }
-                            render();
-                        } else {
-                            saveData();
-                        }
-                    });
-                } else if (window.firebaseConnected === false) {
-                    clearInterval(checkFirebaseInterval);
-                    document.getElementById('connection-status').className = "bg-red-50 border border-red-200 text-red-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
-                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Connection Error';
-                }
-            }, 500);
         });
     </script>
 </body>

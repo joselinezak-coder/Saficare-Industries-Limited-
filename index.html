@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saficare Industries Limited - Stock Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase App & Firestore SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCY0h3PYxGQi1Xguq99GK8rrkPsKQXByg4",
+            authDomain: "safi-stock.firebaseapp.com",
+            projectId: "safi-stock",
+            storageBucket: "safi-stock.firebasestorage.app",
+            messagingSenderId: "833864509119",
+            appId: "1:833864509119:web:c64d6d9ddde0e9ff65880a",
+            measurementId: "G-NL6FJJ97MC"
+        };
+
+        let db = null;
+        let isCloudConnected = false;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            isCloudConnected = true;
+        } catch (e) {
+            console.warn("Firebase initialization error:", e);
+        }
+
+        window.firebaseDb = db;
+        window.firebaseConnected = isCloudConnected;
+    </script>
+    <style>
+        body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+        .card { background: white; border-left: 4px solid #1f4e79; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px 12px; margin-bottom: 8px; }
+        .card-alert { background: #fff5f5; border-left: 4px solid #e53e3e; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px 12px; margin-bottom: 8px; }
+        .editable-input { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 6px; font-size: 11px; width: 65px; text-align: right; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 mb-4 border-b border-gray-200 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-[#1f4e79]">💧 Saficare Industries Limited</h1>
+                <p class="text-xs text-gray-500">Stock Database Management System • Nairobi, Kenya</p>
+            </div>
+            <div id="connection-status" class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Connecting to Cloud Sync...
+            </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 font-bold">TOTAL SKUs</p>
+                <p id="metric-total" class="text-xl font-bold text-[#1f4e79]">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 font-bold">RAW MATERIALS</p>
+                <p id="metric-rm" class="text-xl font-bold text-[#1f4e79]">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 font-bold">CONTAINERS</p>
+                <p id="metric-cont" class="text-xl font-bold text-[#1f4e79]">0</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <p class="text-xs text-gray-500 font-bold">STOCK ALERTS</p>
+                <p id="metric-alerts" class="text-xl font-bold text-red-600">0</p>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Raw Materials Column -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-3 pb-2 border-b">Raw Materials</h3>
+                <div id="list-rm" class="space-y-2 max-h-[600px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Containers Column -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-3 pb-2 border-b">Containers</h3>
+                <div id="list-cont" class="space-y-2 max-h-[600px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Amenities Column -->
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                <h3 class="font-bold text-gray-700 mb-3 pb-2 border-b">Hotel Amenities</h3>
+                <div id="list-am" class="space-y-2 max-h-[600px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Quick Actions & Stock Health Column -->
+            <div class="space-y-6">
+                <!-- Stock Health Panel -->
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    <h3 class="font-bold text-red-600 mb-2 pb-2 border-b flex items-center justify-between text-xs">
+                        <span>⚠️ Stock Health (Below Min)</span>
+                        <span id="alert-count-badge" class="bg-red-100 text-red-800 px-2 py-0.5 rounded-full text-[10px]">0 items</span>
+                    </h3>
+                    <div id="stock-alerts-list" class="space-y-2 max-h-[200px] overflow-y-auto pr-1"></div>
+                </div>
+
+                <!-- Quick Actions Panel -->
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-gray-700 mb-3 pb-2 border-b">Quick Actions</h3>
+                        
+                        <div class="flex border-b mb-3 text-xs font-semibold">
+                            <button onclick="switchTab('receive')" id="btn-receive" class="flex-1 py-2 text-center text-[#1f4e79] border-b-2 border-[#1f4e79]">Receive</button>
+                            <button onclick="switchTab('dispense')" id="btn-dispense" class="flex-1 py-2 text-center text-gray-500">Dispense</button>
+                            <button onclick="switchTab('add')" id="btn-add" class="flex-1 py-2 text-center text-gray-500">New Item</button>
+                        </div>
+
+                        <!-- Receive Form -->
+                        <div id="form-receive" class="space-y-3">
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Select Item</label>
+                                <select id="rec-item" class="w-full border rounded p-2 text-xs bg-gray-50"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Quantity to Add (Receive)</label>
+                                <input type="number" step="any" id="rec-qty" value="1" class="w-full border rounded p-2 text-xs">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Secondary Quantity (e.g. KG if applicable)</label>
+                                <input type="number" step="any" id="rec-qty2" value="0" class="w-full border rounded p-2 text-xs" placeholder="Optional secondary unit">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Supplier / Company Name</label>
+                                <input type="text" id="rec-supplier" placeholder="e.g. Chemical Ltd" class="w-full border rounded p-2 text-xs">
+                            </div>
+                            <button onclick="handleReceive()" class="w-full bg-[#1f4e79] text-white text-xs font-bold py-2 rounded hover:bg-blue-900 transition">Confirm Receive (Add)</button>
+                        </div>
+
+                        <!-- Dispense Form -->
+                        <div id="form-dispense" class="space-y-3 hidden">
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Select Item</label>
+                                <select id="dis-item" class="w-full border rounded p-2 text-xs bg-gray-50"></select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Quantity to Deduct (Dispense)</label>
+                                <input type="number" step="any" id="dis-qty" value="1" class="w-full border rounded p-2 text-xs">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Secondary Qty to Deduct (e.g. KG)</label>
+                                <input type="number" step="any" id="dis-qty2" value="0" class="w-full border rounded p-2 text-xs" placeholder="Optional secondary unit">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Issued To / Department / Batch</label>
+                                <input type="text" id="dis-note" placeholder="e.g. Production Batch #4" class="w-full border rounded p-2 text-xs">
+                            </div>
+                            <button onclick="handleDispense()" class="w-full bg-[#1f4e79] text-white text-xs font-bold py-2 rounded hover:bg-blue-900 transition">Confirm Dispense (Deduct)</button>
+                        </div>
+
+                        <!-- Add New Item Form -->
+                        <div id="form-add" class="space-y-3 hidden">
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Category</label>
+                                <select id="add-cat" class="w-full border rounded p-2 text-xs bg-gray-50">
+                                    <option value="rm">Raw Materials</option>
+                                    <option value="cont">Containers</option>
+                                    <option value="am">Hotel Amenities</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-600 block mb-1">Item Name</label>
+                                <input type="text" id="add-name" placeholder="Item Name" class="w-full border rounded p-2 text-xs">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-600 block mb-1">Min Threshold</label>
+                                    <input type="number" id="add-min" value="10" class="w-full border rounded p-2 text-xs">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600 block mb-1">Unit Format</label>
+                                    <input type="text" id="add-unit" value="KG" class="w-full border rounded p-2 text-xs" placeholder="e.g. JERR, KG">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-600 block mb-1">Initial Stock (Primary)</label>
+                                    <input type="number" step="any" id="add-stock" value="0" class="w-full border rounded p-2 text-xs">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600 block mb-1">Initial Stock (Secondary KG)</label>
+                                    <input type="number" step="any" id="add-stock2" value="0" class="w-full border rounded p-2 text-xs">
+                                </div>
+                            </div>
+                            <button onclick="handleAddItem()" class="w-full bg-[#1f4e79] text-white text-xs font-bold py-2 rounded hover:bg-blue-900 transition">Save New Item</button>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t">
+                        <h4 class="font-bold text-xs text-gray-700 mb-2">Extended Activity Log (Full History)</h4>
+                        <div id="activity-log" class="space-y-1.5 max-h-48 overflow-y-auto pr-1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const defaultData = {
+            rm: [
+                {name: "SODA-ASH", min: 1000, stock: 1604, stock2: 0, unit: "KG"},
+                {name: "STPP", min: 300, stock: 240, stock2: 0, unit: "KG"},
+                {name: "SIMET", min: 100, stock: 132, stock2: 0, unit: "KG"},
+                {name: "NANSA", min: 75, stock: 33, stock2: 0, unit: "KG"},
+                {name: "NP9", min: 150, stock: 182, stock2: 0, unit: "KG"},
+                {name: "EDTA", min: 5, stock: 5, stock2: 0, unit: "KG"},
+                {name: "METHANOL", min: 160, stock: 336, stock2: 0, unit: "KG"},
+                {name: "CMC", min: 100, stock: 7, stock2: 0, unit: "KG"},
+                {name: "SULPHATE", min: 300, stock: 389, stock2: 0, unit: "KG"},
+                {name: "CAUSTIC BAGS", min: 600, stock: 559, stock2: 0, unit: "bags"},
+                {name: "LABSA", min: 120, stock: 224, stock2: 0, unit: "KG"},
+                {name: "SLES", min: 120, stock: 122, stock2: 0, unit: "KG"},
+                {name: "SALT", min: 100, stock: 0, stock2: 0, unit: "KG"},
+                {name: "PEROXIDE 35%", min: 15, stock: 11, stock2: 3, unit: "JERR, KG"},
+                {name: "PEROXIDE 50%", min: 15, stock: 14, stock2: 7, unit: "JERR, KG"},
+                {name: "ACETIC", min: 20, stock: 46, stock2: 0, unit: "KG"},
+                {name: "HCL", min: 40, stock: 40, stock2: 0, unit: "KG"},
+                {name: "96%", min: 20, stock: 19, stock2: 17, unit: "JERR, KG"},
+                {name: "STEPANTEX", min: 60, stock: 119, stock2: 0, unit: "KG"},
+                {name: "DAWANOL", min: 10, stock: 37.5, stock2: 0, unit: "KG"},
+                {name: "HYDROSULPHITE", min: 25, stock: 45, stock2: 0, unit: "KG"},
+                {name: "SULPHURIC ACID", min: 10, stock: 0, stock2: 0, unit: "KG"},
+                {name: "NITRIC ACID", min: 12, stock: 1, stock2: 29, unit: "JERR, KG"},
+                {name: "HYPOCHLORITE", min: 4, stock: 4, stock2: 0, unit: "JERR"},
+                {name: "PHOSPHORIC", min: 2, stock: 14, stock2: 0, unit: "KG"},
+                {name: "CABOMER", min: 2, stock: 0.3, stock2: 0, unit: "KG"},
+                {name: "RUST-OFF", min: 10, stock: 0.6, stock2: 0, unit: "KG"},
+                {name: "C.D.E", min: 10, stock: 11, stock2: 0, unit: "KG"},
+                {name: "WHITIN 4", min: 100, stock: 200, stock2: 0, unit: "KG"},
+                {name: "BAK 50%", min: 10, stock: 7, stock2: 0, unit: "KG"},
+                {name: "CHLORINE 65%", min: 1, stock: 107, stock2: 0, unit: "KG"},
+                {name: "CHLORINE 90%", min: 1, stock: 119, stock2: 0, unit: "KG"},
+                {name: "PEARLIZER", min: 10, stock: 22, stock2: 0, unit: "KG"},
+                {name: "ALUMINIUM SULPHATE", min: 10, stock: 4, stock2: 0, unit: "KG"},
+                {name: "GLUCONATE", min: 25, stock: 21, stock2: 0, unit: "KG"},
+                {name: "CAUSTIC PEARL", min: 100, stock: 39, stock2: 0, unit: "KG"},
+                {name: "STARCH", min: 100, stock: 0, stock2: 0, unit: "KG"},
+                {name: "GLYCERINE", min: 10, stock: 0, stock2: 0, unit: "KG"},
+                {name: "ANTIFOAM", min: 60, stock: 78, stock2: 0, unit: "KG"},
+                {name: "WHITE OIL", min: 10, stock: 7.3, stock2: 0, unit: "KG"},
+                {name: "CAP B", min: 10, stock: 17, stock2: 0, unit: "KG"},
+                {name: "FORMALINE", min: 10, stock: 37, stock2: 0, unit: "KG"},
+                {name: "DISPERSE", min: 10, stock: 24, stock2: 0, unit: "KG"},
+                {name: "TEA", min: 5, stock: 6.3, stock2: 0, unit: "L"},
+                {name: "DISTILLED WATER", min: 40, stock: 40, stock2: 0, unit: "L"},
+                {name: "BUTYL GLYCOL", min: 5, stock: 17, stock2: 0, unit: "KG"},
+                {name: "MEA", min: 5, stock: 4.3, stock2: 0, unit: "KG"}
+            ],
+            cont: [
+                {name: "20L BLACK R", min: 80, stock: 57, stock2: 0, unit: "Pcs"},
+                {name: "750ML SAFIC", min: 80, stock: 934, stock2: 0, unit: "Pcs"},
+                {name: "500ML SAFIC", min: 80, stock: 458, stock2: 0, unit: "Pcs"},
+                {name: "1L BLEACH R.", min: 80, stock: 42, stock2: 0, unit: "Pcs"},
+                {name: "500ML BLEACH R", min: 80, stock: 171, stock2: 0, unit: "Pcs"},
+                {name: "1L BLEACH COLOR", min: 80, stock: 448, stock2: 0, unit: "Pcs"},
+                {name: "500ML BLEACH COLOR", min: 80, stock: 273, stock2: 0, unit: "Pcs"},
+                {name: "500ML HANDWASH", min: 150, stock: 400, stock2: 0, unit: "Pcs"},
+                {name: "500ML DISHWASH", min: 80, stock: 383, stock2: 0, unit: "Pcs"},
+                {name: "1L DISHWASH", min: 80, stock: 60, stock2: 0, unit: "Pcs"},
+                {name: "500G DRAINAGE OPENER", min: 80, stock: 278, stock2: 0, unit: "Pcs"},
+                {name: "500G SCOURING", min: 80, stock: 418, stock2: 0, unit: "Pcs"},
+                {name: "1KG SCOURING", min: 80, stock: 90, stock2: 0, unit: "Pcs"},
+                {name: "1L BOWL CLEANER", min: 80, stock: 196, stock2: 0, unit: "Pcs"},
+                {name: "500ML BOWL CLEANER", min: 80, stock: 355, stock2: 0, unit: "Pcs"},
+                {name: "400ML SHOWERGEL", min: 80, stock: 48, stock2: 0, unit: "Pcs"},
+                {name: "750ML SHOWERGEL", min: 80, stock: 260, stock2: 0, unit: "Pcs"},
+                {name: "5L JERRICAN", min: 60, stock: 65, stock2: 0, unit: "Pcs"},
+                {name: "5KG BUCKET", min: 20, stock: 21, stock2: 0, unit: "Pcs"},
+                {name: "20L WHITE R", min: 100, stock: 136, stock2: 0, unit: "Pcs"},
+                {name: "20L WHITE S", min: 40, stock: 44, stock2: 0, unit: "Pcs"},
+                {name: "20KG BUCKET", min: 80, stock: 16, stock2: 0, unit: "Pcs"}
+            ],
+            am: [
+                {name: "GUEST SOAP", min: 300, stock: 1160, stock2: 0, unit: "Pcs"},
+                {name: "HAIRNETS", min: 50, stock: 397, stock2: 0, unit: "Pcs"},
+                {name: "SANITARY BAG", min: 50, stock: 294, stock2: 0, unit: "Pcs"},
+                {name: "SHOWER CAP", min: 50, stock: 300, stock2: 0, unit: "Pcs"},
+                {name: "DENTAL KITS (FOILED)", min: 100, stock: 82, stock2: 0, unit: "Pcs"},
+                {name: "DENTAL KITS (BOXED)", min: 100, stock: 170, stock2: 0, unit: "Pcs"},
+                {name: "BODY LOTION 30 ML", min: 500, stock: 2374, stock2: 0, unit: "Pcs"},
+                {name: "SHOWER GEL 30 ML", min: 500, stock: 2500, stock2: 0, unit: "Pcs"},
+                {name: "SHAMPOO", min: 300, stock: 1200, stock2: 0, unit: "Pcs"},
+                {name: "CONDITIONER", min: 300, stock: 1400, stock2: 0, unit: "Pcs"}
+            ]
+        };
+
+        let currentData = JSON.parse(localStorage.getItem('saficare_stock_data')) || defaultData;
+        let currentTxns = JSON.parse(localStorage.getItem('saficare_txns')) || [];
+
+        // Force check and update PEROXIDE 35% and 96% unit structures if stored in older local cache
+        ['rm'].forEach(cat => {
+            currentData[cat].forEach(item => {
+                if (item.name === "PEROXIDE 35%") {
+                    item.unit = "JERR, KG";
+                    item.stock = 11;
+                    item.stock2 = 3;
+                }
+                if (item.name === "96%") {
+                    item.unit = "JERR, KG";
+                    item.stock = 19;
+                    item.stock2 = 17;
+                }
+            });
+        });
+
+        window.switchTab = function(tab) {
+            ['receive', 'dispense', 'add'].forEach(t => {
+                document.getElementById(`form-${t}`).classList.add('hidden');
+                document.getElementById(`btn-${t}`).className = "flex-1 py-2 text-center text-gray-500";
+            });
+            document.getElementById(`form-${tab}`).classList.remove('hidden');
+            document.getElementById(`btn-${tab}`).className = "flex-1 py-2 text-center text-[#1f4e79] border-b-2 border-[#1f4e79]";
+        };
+
+        function findItem(name) {
+            for (let cat of ['rm', 'cont', 'am']) {
+                let found = currentData[cat].find(i => i.name === name);
+                if (found) return {item: found, category: cat};
+            }
+            return null;
+        }
+
+        async function saveData() {
+            localStorage.setItem('saficare_stock_data', JSON.stringify(currentData));
+            localStorage.setItem('saficare_txns', JSON.stringify(currentTxns));
+
+            if (window.firebaseConnected && window.firebaseDb) {
+                try {
+                    await setDoc(doc(window.firebaseDb, "saficare", "inventory"), {
+                        data: currentData,
+                        transactions: currentTxns,
+                        updatedAt: new Date().toISOString()
+                    });
+                } catch (err) {
+                    console.error("Error saving to Firestore:", err);
+                }
+            }
+        }
+
+        window.updateInlineStock = async function(cat, index, field, value) {
+            let val = parseFloat(value);
+            if (isNaN(val)) return;
+            currentData[cat][index][field] = val;
+            await saveData();
+        };
+
+        window.handleReceive = async function() {
+            const name = document.getElementById('rec-item').value;
+            const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
+            const qty2 = parseFloat(document.getElementById('rec-qty2').value) || 0;
+            const supplier = document.getElementById('rec-supplier').value;
+
+            if (!supplier.trim()) {
+                alert('Please enter a Supplier / Company Name.');
+                return;
+            }
+
+            let res = findItem(name);
+            if (res) {
+                res.item.stock = Number((parseFloat(res.item.stock) + qty).toFixed(2));
+                let description = `Received +${qty} ${res.item.unit.split(',')[0].trim()}`;
+                
+                if (res.item.unit.includes(',') && qty2 !== 0) {
+                    res.item.stock2 = Number(((res.item.stock2 || 0) + qty2).toFixed(2));
+                    let secondUnit = res.item.unit.split(',')[1].trim();
+                    description += ` and +${qty2} ${secondUnit}`;
+                }
+
+                currentTxns.unshift({
+                    item: name,
+                    type: `${description} (from ${supplier})`,
+                    time: new Date().toLocaleString()
+                });
+                await saveData();
+                alert(`Successfully updated inventory for ${name}!`);
+            }
+        };
+
+        window.handleDispense = async function() {
+            const name = document.getElementById('dis-item').value;
+            const qty = parseFloat(document.getElementById('dis-qty').value) || 0;
+            const qty2 = parseFloat(document.getElementById('dis-qty2').value) || 0;
+            const note = document.getElementById('dis-note').value || 'Production Usage';
+
+            let res = findItem(name);
+            if (res) {
+                res.item.stock = Number((parseFloat(res.item.stock) - qty).toFixed(2));
+                let description = `Dispensed -${qty} ${res.item.unit.split(',')[0].trim()}`;
+
+                if (res.item.unit.includes(',') && qty2 !== 0) {
+                    res.item.stock2 = Number(((res.item.stock2 || 0) - qty2).toFixed(2));
+                    let secondUnit = res.item.unit.split(',')[1].trim();
+                    description += ` and -${qty2} ${secondUnit}`;
+                }
+
+                currentTxns.unshift({
+                    item: name,
+                    type: `${description} (${note})`,
+                    time: new Date().toLocaleString()
+                });
+                await saveData();
+                alert(`Successfully dispensed from ${name}!`);
+            }
+        };
+
+        window.handleAddItem = async function() {
+            const cat = document.getElementById('add-cat').value;
+            const name = document.getElementById('add-name').value.toUpperCase().trim();
+            const min = parseFloat(document.getElementById('add-min').value);
+            const unit = document.getElementById('add-unit').value.toUpperCase();
+            const stock = parseFloat(document.getElementById('add-stock').value) || 0;
+            const stock2 = parseFloat(document.getElementById('add-stock2').value) || 0;
+
+            if (!name) {
+                alert('Please enter an item name.');
+                return;
+            }
+
+            currentData[cat].push({name, min, stock, stock2, unit});
+            currentTxns.unshift({
+                item: name,
+                type: `Added new item`,
+                time: new Date().toLocaleString()
+            });
+            await saveData();
+            alert(`Added ${name} successfully!`);
+        };
+
+        function render() {
+            const totalItems = currentData.rm.length + currentData.cont.length + currentData.am.length;
+            document.getElementById('metric-total').innerText = totalItems;
+            document.getElementById('metric-rm').innerText = currentData.rm.length;
+            document.getElementById('metric-cont').innerText = currentData.cont.length;
+
+            renderEditableList('list-rm', currentData.rm, 'rm');
+            renderEditableList('list-cont', currentData.cont, 'cont');
+            renderEditableList('list-am', currentData.am, 'am');
+            renderStockHealth();
+            populateDropdowns();
+            renderActivity();
+        }
+
+        function renderEditableList(elementId, items, catName) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = items.map((i, idx) => {
+                const isAlert = parseFloat(i.stock) <= parseFloat(i.min);
+                let secondaryInputHtml = '';
+                let secondUnitName = '';
+
+                if (i.unit.includes(',')) {
+                    secondUnitName = i.unit.split(',')[1].trim();
+                    secondaryInputHtml = `, <input type="number" step="any" value="${i.stock2 !== undefined ? i.stock2 : 0}" class="editable-input text-blue-800" onchange="updateInlineStock('${catName}', ${idx}, 'stock2', this.value)" title="Secondary stock (${secondUnitName})"> ${secondUnitName}`;
+                }
+
+                return `
+                    <div class="${isAlert ? 'card-alert' : 'card'} flex flex-col gap-1">
+                        <div class="font-bold text-xs text-gray-800 flex justify-between items-center">
+                            <span>${i.name}</span>
+                            <span class="text-[10px] text-gray-400 font-normal">Min: <input type="number" value="${i.min}" class="editable-input w-12 text-gray-600" onchange="updateInlineStock('${catName}', ${idx}, 'min', this.value)"></span>
+                        </div>
+                        <div class="flex items-center justify-between text-xs pt-1">
+                            <span class="text-gray-600 font-semibold text-[11px]">Stock:</span>
+                            <div class="flex items-center gap-1">
+                                <input type="number" step="any" value="${i.stock}" class="editable-input font-bold ${isAlert ? 'text-red-600 border-red-300' : 'text-[#1f4e79]'}" onchange="updateInlineStock('${catName}', ${idx}, 'stock', this.value)"> 
+                                <span class="text-[10px] text-gray-500">${i.unit.split(',')[0].trim()}</span>
+                                ${secondaryInputHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderStockHealth() {
+            const allItems = [
+                ...currentData.rm.map(i => ({...i, cat: 'Raw Materials'})),
+                ...currentData.cont.map(i => ({...i, cat: 'Containers'})),
+                ...currentData.am.map(i => ({...i, cat: 'Amenities'}))
+            ];
+
+            const lowStockItems = allItems.filter(i => parseFloat(i.stock) <= parseFloat(i.min));
+            document.getElementById('metric-alerts').innerText = lowStockItems.length;
+            document.getElementById('alert-count-badge').innerText = `${lowStockItems.length} items`;
+
+            const container = document.getElementById('stock-alerts-list');
+            if (lowStockItems.length === 0) {
+                container.innerHTML = '<p class="text-green-600 text-xs font-semibold p-2">✅ All stock levels are healthy!</p>';
+                return;
+            }
+
+            container.innerHTML = lowStockItems.map(i => {
+                let displayString = `${i.stock} ${i.unit.split(',')[0].trim()}`;
+                if (i.unit.includes(',') && i.stock2 !== undefined) {
+                    displayString = `${i.stock} JERR, ${i.stock2} ${i.unit.split(',')[1].trim()}`;
+                }
+                return `
+                    <div class="bg-red-50 border-l-2 border-red-500 p-2 rounded text-xs flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-gray-800">${i.name}</span><br>
+                            <span class="text-[10px] text-gray-500">${i.cat}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-bold text-red-600">${displayString}</span><br>
+                            <span class="text-[10px] text-gray-400">Min: ${i.min}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function populateDropdowns() {
+            const allItems = [
+                ...currentData.rm.map(i => ({...i, cat: 'rm'})),
+                ...currentData.cont.map(i => ({...i, cat: 'cont'})),
+                ...currentData.am.map(i => ({...i, cat: 'am'}))
+            ];
+            const optionsHtml = allItems.map(i => {
+                let displayString = `${i.stock} ${i.unit.split(',')[0].trim()}`;
+                if (i.unit.includes(',') && i.stock2 !== undefined) {
+                    displayString = `${i.stock} JERR, ${i.stock2} ${i.unit.split(',')[1].trim()}`;
+                }
+                return `<option value="${i.name}">${i.name} (Current: ${displayString})</option>`;
+            }).join('');
+            document.getElementById('rec-item').innerHTML = optionsHtml;
+            document.getElementById('dis-item').innerHTML = optionsHtml;
+        }
+
+        function renderActivity() {
+            const container = document.getElementById('activity-log');
+            if (currentTxns.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-xs">No activity yet.</p>';
+                return;
+            }
+            container.innerHTML = currentTxns.map(t => `
+                <div class="bg-gray-50 p-2 rounded border-l-2 border-[#1f4e79] text-[10px] mb-1">
+                    <span class="font-bold text-gray-800">${t.item}</span>: ${t.type}<br>
+                    <span class="text-gray-400 text-[9px]">${t.time}</span>
+                </div>
+            `).join('');
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            render();
+
+            const checkFirebaseInterval = setInterval(() => {
+                if (window.firebaseConnected && window.firebaseDb) {
+                    clearInterval(checkFirebaseInterval);
+                    document.getElementById('connection-status').className = "bg-green-50 border border-green-200 text-green-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
+                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Live Cloud Sync Active';
+
+                    onSnapshot(doc(window.firebaseDb, "saficare", "inventory"), (docSnap) => {
+                        if (docSnap.exists()) {
+                            const cloudData = docSnap.data();
+                            if (cloudData.data) currentData = cloudData.data;
+                            if (cloudData.transactions) {
+                                currentTxns = cloudData.transactions;
+                                localStorage.setItem('saficare_txns', JSON.stringify(currentTxns));
+                            }
+                            render();
+                        } else {
+                            saveData();
+                        }
+                    });
+                } else if (window.firebaseConnected === false) {
+                    clearInterval(checkFirebaseInterval);
+                    document.getElementById('connection-status').className = "bg-red-50 border border-red-200 text-red-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
+                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Connection Error';
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

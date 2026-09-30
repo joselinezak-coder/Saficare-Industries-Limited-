@@ -5,6 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Saficare Industries Limited - Stock Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase App & Firestore SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCY0h3PYxGQi1Xguq99GK8rrkPsKQXByg4",
+            authDomain: "safi-stock.firebaseapp.com",
+            projectId: "safi-stock",
+            storageBucket: "safi-stock.firebasestorage.app",
+            messagingSenderId: "833864509119",
+            appId: "1:833864509119:web:c64d6d9ddde0e9ff65880a",
+            measurementId: "G-NL6FJJ97MC"
+        };
+
+        let db = null;
+        let isCloudConnected = false;
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            isCloudConnected = true;
+        } catch (e) {
+            console.warn("Firebase initialization error:", e);
+        }
+
+        window.firebaseDb = db;
+        window.firebaseConnected = isCloudConnected;
+    </script>
     <style>
         body { background-color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
         .card { background: white; border-left: 4px solid #1f4e79; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px 12px; margin-bottom: 8px; }
@@ -20,8 +49,8 @@
                 <h1 class="text-2xl font-bold text-[#1f4e79]">💧 Saficare Industries Limited</h1>
                 <p class="text-xs text-gray-500">Stock Database Management System • Nairobi, Kenya</p>
             </div>
-            <div class="bg-blue-50 border border-blue-200 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Local Standalone Mode Active
+            <div id="connection-status" class="bg-amber-50 border border-amber-200 text-amber-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span> Connecting to Cloud Sync...
             </div>
         </div>
 
@@ -176,8 +205,9 @@
         </div>
     </div>
 
-    <script>
-        // HARDCODED DEFAULT DATA WITH YOUR EXACT PEROXIDE & ETHANOL VALUES
+    <script type="module">
+        import { doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
         const defaultData = {
             rm: [
                 {name: "SODA-ASH", min: 1000, stock: 1604, stock2: 0, unit: "KG"},
@@ -266,8 +296,6 @@
             ]
         };
 
-        // FORCE COMPLETELY FRESH LOCAL DATA STATE
-        localStorage.clear();
         let currentData = defaultData;
         let currentTxns = [];
 
@@ -288,29 +316,34 @@
             return null;
         }
 
-        function saveData() {
-            localStorage.setItem('saficare_stock_data', JSON.stringify(currentData));
-            localStorage.setItem('saficare_txns', JSON.stringify(currentTxns));
+        async function saveData() {
+            if (window.firebaseConnected && window.firebaseDb) {
+                try {
+                    await setDoc(doc(window.firebaseDb, "saficare", "inventory"), {
+                        data: currentData,
+                        transactions: currentTxns,
+                        updatedAt: new Date().toISOString()
+                    });
+                } catch (err) {
+                    console.error("Error saving to Firestore:", err);
+                }
+            }
         }
 
-        window.updateInlineStock = function(cat, index, field, value) {
+        window.updateInlineStock = async function(cat, index, field, value) {
             let val = parseFloat(value);
             if (isNaN(val)) return;
             currentData[cat][index][field] = val;
-            saveData();
-            render();
+            await saveData();
         };
 
-        window.handleReceive = function() {
+        window.handleReceive = async function() {
             const name = document.getElementById('rec-item').value;
             const qty = parseFloat(document.getElementById('rec-qty').value) || 0;
             const qty2 = parseFloat(document.getElementById('rec-qty2').value) || 0;
             const supplier = document.getElementById('rec-supplier').value;
 
-            if (!supplier.trim()) {
-                alert('Please enter a Supplier / Company Name.');
-                return;
-            }
+            if (!supplier.trim()) { alert('Please enter a Supplier / Company Name.'); return; }
 
             let res = findItem(name);
             if (res) {
@@ -319,13 +352,12 @@
                     res.item.stock2 = Number(((res.item.stock2 || 0) + qty2).toFixed(2));
                 }
                 currentTxns.unshift({ item: name, type: `Received +${qty} (from ${supplier})`, time: new Date().toLocaleString() });
-                saveData();
-                render();
+                await saveData();
                 alert(`Successfully updated ${name}!`);
             }
         };
 
-        window.handleDispense = function() {
+        window.handleDispense = async function() {
             const name = document.getElementById('dis-item').value;
             const qty = parseFloat(document.getElementById('dis-qty').value) || 0;
             const qty2 = parseFloat(document.getElementById('dis-qty2').value) || 0;
@@ -338,13 +370,12 @@
                     res.item.stock2 = Number(((res.item.stock2 || 0) - qty2).toFixed(2));
                 }
                 currentTxns.unshift({ item: name, type: `Dispensed -${qty} (${note})`, time: new Date().toLocaleString() });
-                saveData();
-                render();
+                await saveData();
                 alert(`Successfully dispensed from ${name}!`);
             }
         };
 
-        window.handleAddItem = function() {
+        window.handleAddItem = async function() {
             const cat = document.getElementById('add-cat').value;
             const name = document.getElementById('add-name').value.toUpperCase().trim();
             const min = parseFloat(document.getElementById('add-min').value);
@@ -356,8 +387,7 @@
 
             currentData[cat].push({name, min, stock, stock2, unit});
             currentTxns.unshift({ item: name, type: `Added new item`, time: new Date().toLocaleString() });
-            saveData();
-            render();
+            await saveData();
             alert(`Added ${name} successfully!`);
         };
 
@@ -453,7 +483,33 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            render();
+            const checkFirebaseInterval = setInterval(async () => {
+                if (window.firebaseConnected && window.firebaseDb) {
+                    clearInterval(checkFirebaseInterval);
+                    document.getElementById('connection-status').className = "bg-green-50 border border-green-200 text-green-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
+                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500"></span> Real-Time Cloud Sync Active';
+
+                    // FORCE OVERWRITE FIREBASE CLOUD STATE WITH THE NEW CORRECT VALUES
+                    await setDoc(doc(window.firebaseDb, "saficare", "inventory"), {
+                        data: defaultData,
+                        transactions: [{ item: "SYSTEM", type: "Forced cloud sync reset to exact counts", time: new Date().toLocaleString() }],
+                        updatedAt: new Date().toISOString()
+                    });
+
+                    onSnapshot(doc(window.firebaseDb, "saficare", "inventory"), (docSnap) => {
+                        if (docSnap.exists()) {
+                            const cloudData = docSnap.data();
+                            if (cloudData.data) currentData = cloudData.data;
+                            if (cloudData.transactions) currentTxns = cloudData.transactions;
+                            render();
+                        }
+                    });
+                } else if (window.firebaseConnected === false) {
+                    clearInterval(checkFirebaseInterval);
+                    document.getElementById('connection-status').className = "bg-red-50 border border-red-200 text-red-800 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5";
+                    document.getElementById('connection-status').innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Connection Error';
+                }
+            }, 500);
         });
     </script>
 </body>
